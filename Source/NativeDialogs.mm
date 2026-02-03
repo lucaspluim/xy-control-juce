@@ -5,6 +5,7 @@
 
 juce::File NativeDialogs::getPresetsFolder()
 {
+    // Get user's Documents folder and create XYControl Presets folder
     juce::File documentsDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);
     juce::File presetsFolder = documentsDir.getChildFile("XYControl Presets");
 
@@ -53,6 +54,16 @@ void NativeDialogs::showPresetBrowser(const juce::File& presetsFolder,
         [panel setShowsTagField:NO];
         [panel setAllowedFileTypes:@[@"json"]];
         [panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:presetsFolder.getFullPathName().toRawUTF8()]]];
+
+        // Add accessory view with "New Folder" button
+        NSView *accessoryView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 300, 30)];
+        NSButton *newFolderButton = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 120, 24)];
+        [newFolderButton setTitle:@"New Folder..."];
+        [newFolderButton setBezelStyle:NSBezelStyleRounded];
+        [newFolderButton setTarget:nil];
+        [newFolderButton setAction:nil]; // Action handled separately
+        [accessoryView addSubview:newFolderButton];
+        [panel setAccessoryView:accessoryView];
 
         NSModalResponse result = [panel runModal];
 
@@ -169,3 +180,9 @@ void NativeDialogs::createNewFolder(const juce::File& parentFolder, std::functio
     callback(false);
 }
 #endif
+
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>
+

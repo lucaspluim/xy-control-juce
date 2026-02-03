@@ -7,7 +7,8 @@ class XYControlComponent : public juce::Component,
                            private juce::Timer
 {
 public:
-    enum class Preset {
+    enum class Preset
+    {
         Blue = 0,
         Red = 1,
         Black = 2
@@ -15,6 +16,9 @@ public:
 
     XYControlComponent();
     ~XYControlComponent() override;
+
+    void setPreset(Preset preset);
+    Preset getCurrentPreset() const { return currentPreset; }
 
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -24,12 +28,8 @@ public:
     void mouseUp(const juce::MouseEvent& event) override;
     void mouseDoubleClick(const juce::MouseEvent& event) override;
 
-    Preset getCurrentPreset() const { return currentPreset; }
-    void setPreset(Preset preset);
-
 private:
     void timerCallback() override;
-    void loadGlowImagesFromBinaryData();
 
     struct SpringLayer
     {
@@ -43,30 +43,57 @@ private:
 
         void update(float targetX, float targetY, float dt)
         {
+            // Spring force
             float fx = (targetX - x) * stiffness;
             float fy = (targetY - y) * stiffness;
 
-            vx = vx * damping + (fx / mass) * dt;
-            vy = vy * damping + (fy / mass) * dt;
+            // Damping force
+            float dampingFx = vx * damping;
+            float dampingFy = vy * damping;
 
+            // Acceleration
+            float ax = (fx - dampingFx) / mass;
+            float ay = (fy - dampingFy) / mass;
+
+            // Velocity
+            vx += ax * dt;
+            vy += ay * dt;
+
+            // Position
             x += vx * dt;
             y += vy * dt;
         }
     };
 
-    std::array<SpringLayer, 6> springLayers;
+    struct GlowLayer
+    {
+        int size;
+        float opacity;
+        juce::Colour color;
+        juce::Image cachedImage;
+    };
 
-    float cursorX = 0.5f;
-    float cursorY = 0.5f;
+    std::array<SpringLayer, 6> springLayers;
+    std::array<GlowLayer, 5> glowLayers;
+
     float targetX = 0.5f;
     float targetY = 0.5f;
-
     bool isDragging = false;
-    float breathePhase = 0.0f;
-    float breatheBlend = 0.0f;
+    int64_t lastFrameTime;
+    float idleTimer = 0.0f;
+    bool isBreathing = true;
+    float breatheTime = 0.0f;
+    float breatheBlend = 0.0f;  // Smooth transition into breathing
+    bool isDispersing = false;
+    float disperseTime = 0.0f;
 
     Preset currentPreset = Preset::Blue;
-    std::array<juce::Image, 5> glowLayers;
+    juce::Colour backgroundColor;
+    juce::Colour cursorColor;
+
+    void loadGlowImagesFromBinaryData();
+    void updateColorsForPreset();
+    void constrainToRoundedBounds(float& x, float& y, float width, float height, float cornerRadius);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(XYControlComponent)
 };
