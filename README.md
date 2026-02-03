@@ -1,148 +1,164 @@
-# XY Control - JUCE Implementation
+# XY Control VST3 Plugin
 
-High-performance XY control pad with spring physics and organic glow effects, optimized for VST plugin UIs.
+A physics-based XY control interface built with JUCE, featuring smooth spring animations, Gaussian blur effects, and a native macOS preset system.
+
+![XY Control Demo](demo.gif)
 
 ## Features
 
-- Real spring physics simulation with mass, stiffness, and damping
-- 5-layer glow system with heavy, fluid motion
-- OpenGL-accelerated rendering for minimal CPU usage
-- Breathing animation when idle
-- Drag-anywhere control (stays locked even outside bounds)
+### UI/UX
+- **Spring Physics**: Ball smoothly springs back to center when released
+- **Breathing Animation**: Subtle pulsing effect for visual interest
+- **Three Color Presets**: Blue (default), Red, and Black themes
+- **Disperse Effect**: Particles explode outward when changing presets
+- **Hold Indicator**: Growing blue ring shows 3-second hold progress
+- **Smooth Animations**: 60fps rendering with optimized performance
 
-## Prerequisites
+### Presets
+- **Double-click outside**: Cycle through color presets
+- **Hold 3 seconds outside**: Open native macOS preset browser
+- **Native File Dialogs**: Save/load presets using system file browser
+- **JSON Format**: Presets stored in `~/Documents/XYControl Presets/`
 
+### Plugin Features
+- **VST3 Format**: Works in any DAW (tested in Ableton Live)
+- **State Saving**: XY position persists with project
+- **Audio Pass-through**: Currently passes audio unchanged (ready for DSP)
+- **Cross-platform**: macOS (ARM64) with fallback for other platforms
+
+## Build Instructions
+
+### Prerequisites
 - CMake 3.15 or higher
-- C++17 compatible compiler
-- Git (for fetching JUCE)
+- Xcode (macOS) or Visual Studio (Windows)
+- C++17 compiler
 
-### macOS
+### macOS Build
+
 ```bash
-# Install with Homebrew
-brew install cmake
-```
+# Clone the repository
+git clone <repository-url>
+cd xy-control-juce
 
-### Linux
-```bash
-sudo apt-get install cmake build-essential libasound2-dev
-```
+# Create build directory
+mkdir build && cd build
 
-### Windows
-- Install CMake from https://cmake.org/download/
-- Install Visual Studio 2019 or later with C++ tools
-
-## Building
-
-1. Open Terminal and navigate to the project directory:
-```bash
-cd ~/xy-control-juce
-```
-
-2. Create a build directory:
-```bash
-mkdir build
-cd build
-```
-
-3. Run CMake (this will automatically download JUCE):
-```bash
+# Configure with CMake
 cmake ..
+
+# Build standalone app
+make XYControl -j8
+
+# Build VST3 plugin
+make XYControlPlugin_VST3 -j8
+
+# VST3 is automatically copied to: ~/Library/Audio/Plug-Ins/VST3/
 ```
 
-4. Build the project:
+### Generating Glow Images
 
-**macOS/Linux:**
+The project includes pre-generated glow images, but you can regenerate them:
+
 ```bash
-cmake --build . --config Release
+cd build
+./GenerateAllPresetImages
 ```
 
-**Windows:**
-```bash
-cmake --build . --config Release
+This creates 15 glow images (5 layers × 3 presets) in the `Resources/` folder.
+
+## Project Structure
+
+```
+xy-control-juce/
+├── Source/
+│   ├── Main.cpp                    # Standalone app entry point
+│   ├── PluginProcessor.cpp/h       # VST3 audio processor
+│   ├── PluginEditor.cpp/h          # VST3 editor wrapper
+│   ├── MainComponent.cpp/h         # UI container with preset system
+│   ├── XYControlComponent.cpp/h    # XY pad with physics engine
+│   └── NativeDialogs.mm/h          # macOS native file browsers
+├── Resources/
+│   └── glow_*.png                  # Pre-rendered Gaussian blur layers
+├── CMakeLists.txt                  # Build configuration
+├── GenerateGlowImages.cpp          # Utility to create glow images
+└── GenerateAllPresetImages.cpp     # Utility for all 3 presets
 ```
 
-## Running
+## For Plugin Developers
 
-### macOS
-```bash
-./XYControl_artefacts/Release/XY\ Control.app/Contents/MacOS/XY\ Control
-```
+### Adding Audio Processing
 
-Or double-click the app in Finder at:
-`build/XYControl_artefacts/Release/XY Control.app`
+The plugin currently passes audio through unchanged. To add DSP:
 
-### Linux
-```bash
-./XYControl_artefacts/Release/XY\ Control
-```
-
-### Windows
-```
-XYControl_artefacts\Release\XY Control.exe
-```
-
-## How to Use
-
-1. **Click and drag** anywhere in the white square to move the cursor
-2. **Drag outside** the bounds while holding - the cursor stays locked to edges
-3. **Release and wait** ~200ms to see the breathing animation
-4. **Watch the glow** - notice how it lags behind with heavy, fluid motion
-
-## Performance
-
-- **GPU**: <0.5ms per frame
-- **CPU**: <0.1ms per frame (just spring physics)
-- **60 FPS** locked on any modern hardware
-
-## Integration into Your VST
-
-To use this in your plugin:
-
-1. Copy `XYControlComponent.h` and `XYControlComponent.cpp` to your plugin source
-2. Add `juce_opengl` module to your plugin project
-3. Add the component to your editor:
+1. **Add Parameters** in `PluginProcessor.h`:
 ```cpp
-addAndMakeVisible(xyControl);
-xyControl.setBounds(x, y, size, size);
+juce::AudioProcessorValueTreeState parameters;
 ```
 
-## Customization
-
-Edit these values in `XYControlComponent.cpp`:
-
-**Spring physics** (line 4-9):
+2. **Link Parameters to UI** in `PluginEditor.cpp`:
 ```cpp
-SpringLayer(stiffness, damping, mass)
-// Lower stiffness = slower response
-// Higher damping = less bounce
-// Higher mass = heavier feel
+// Get XY position from MainComponent
+auto xyPos = mainComponent.getXYPosition();
+
+// Update processor parameters
+audioProcessor.setParameter("x", xyPos.x);
+audioProcessor.setParameter("y", xyPos.y);
 ```
 
-**Glow colors/sizes** (line 10-16):
+3. **Process Audio** in `PluginProcessor::processBlock()`:
 ```cpp
-{width, height, opacity, blurRadius, color}
+void XYControlAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, 
+                                          juce::MidiBuffer& midiMessages)
+{
+    float x = xyPosition.x;  // 0.0 to 1.0
+    float y = xyPosition.y;  // 0.0 to 1.0
+    
+    // Your DSP code here
+    // Example: x could control filter cutoff, y could control resonance
+}
 ```
 
-**Breathing speed** (line 146):
+### Adding MIDI Output
+
+To send MIDI CC messages based on XY position:
+
+1. In `CMakeLists.txt`, set:
+```cmake
+NEEDS_MIDI_OUTPUT TRUE
+```
+
+2. In `PluginProcessor::processBlock()`:
 ```cpp
-float breathePhase = time * (4.0f + i * 0.3f);
-// Adjust multipliers for faster/slower breathing
+midiMessages.addEvent(juce::MidiMessage::controllerEvent(
+    1,              // MIDI channel
+    74,             // CC number
+    int(xyPosition.x * 127)  // CC value (0-127)
+), 0);
 ```
 
-## Troubleshooting
+## Technical Details
 
-**Build fails with "Could not find JUCE":**
-- Check your internet connection (CMake needs to download JUCE)
-- Try: `rm -rf build` and rebuild
+### Physics Engine
+- Spring constant: 0.20
+- Damping: 1.13
+- Mass: 1.6
+- Update rate: 60Hz
 
-**Application crashes on startup:**
-- Make sure your GPU drivers are up to date
-- Try commenting out the OpenGL code and use software rendering
+### Rendering Optimization
+- Pre-rendered Gaussian blur (5 layers per preset)
+- Layered compositing for smooth glow effects
+- `setOpaque(true)` for faster repaints
+- Double-buffered rendering
 
-**Glow doesn't show:**
-- The blur is rendered using multiple overlapping circles
-- Check if OpenGL context is properly initialized
+### Color Presets
+- **Blue**: RGB(0,122,255) on white background
+- **Red**: RGB(255,69,58) on dark red background
+- **Black**: White glow on black background (smaller glow radius for balance)
 
 ## License
 
-MIT License - feel free to use in commercial projects
+[Your License Here]
+
+## Credits
+
+Built with [JUCE Framework](https://juce.com/)

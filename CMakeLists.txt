@@ -15,11 +15,21 @@ FetchContent_MakeAvailable(JUCE)
 # Create binary data from Resources folder
 juce_add_binary_data(GlowResources
     SOURCES
-        Resources/glow_layer_0.png
-        Resources/glow_layer_1.png
-        Resources/glow_layer_2.png
-        Resources/glow_layer_3.png
-        Resources/glow_layer_4.png
+        Resources/glow_blue_layer_0.png
+        Resources/glow_blue_layer_1.png
+        Resources/glow_blue_layer_2.png
+        Resources/glow_blue_layer_3.png
+        Resources/glow_blue_layer_4.png
+        Resources/glow_red_layer_0.png
+        Resources/glow_red_layer_1.png
+        Resources/glow_red_layer_2.png
+        Resources/glow_red_layer_3.png
+        Resources/glow_red_layer_4.png
+        Resources/glow_black_layer_0.png
+        Resources/glow_black_layer_1.png
+        Resources/glow_black_layer_2.png
+        Resources/glow_black_layer_3.png
+        Resources/glow_black_layer_4.png
 )
 
 # Create the GUI application
@@ -32,6 +42,7 @@ target_sources(XYControl PRIVATE
     Source/Main.cpp
     Source/MainComponent.cpp
     Source/XYControlComponent.cpp
+    Source/NativeDialogs.mm
 )
 
 target_compile_definitions(XYControl PRIVATE
@@ -60,4 +71,56 @@ add_executable(GenerateGlowImages GenerateGlowImages.cpp)
 target_link_libraries(GenerateGlowImages PRIVATE
     juce::juce_graphics
     juce::juce_core
+)
+
+# Utility to generate all preset images (blue, red, black)
+add_executable(GenerateAllPresetImages GenerateAllPresetImages.cpp)
+target_link_libraries(GenerateAllPresetImages PRIVATE
+    juce::juce_graphics
+    juce::juce_core
+)
+
+# Create the VST3 plugin
+juce_add_plugin(XYControlPlugin
+    PRODUCT_NAME "XY Control"
+    COMPANY_NAME "YourCompany"
+    PLUGIN_MANUFACTURER_CODE Ycom
+    PLUGIN_CODE Xyct
+    FORMATS VST3
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD TRUE
+    VST3_COPY_DIR "$ENV{HOME}/Library/Audio/Plug-Ins/VST3"
+)
+
+target_sources(XYControlPlugin PRIVATE
+    Source/PluginProcessor.cpp
+    Source/PluginProcessor.h
+    Source/PluginEditor.cpp
+    Source/PluginEditor.h
+    Source/MainComponent.cpp
+    Source/MainComponent.h
+    Source/XYControlComponent.cpp
+    Source/XYControlComponent.h
+    Source/NativeDialogs.mm
+    Source/NativeDialogs.h
+)
+
+target_compile_definitions(XYControlPlugin PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+)
+
+target_link_libraries(XYControlPlugin PRIVATE
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    GlowResources
+PUBLIC
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags
 )

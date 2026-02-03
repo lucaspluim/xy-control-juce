@@ -6,22 +6,14 @@ class XYControlApplication : public juce::JUCEApplication
 public:
     XYControlApplication() {}
 
-    const juce::String getApplicationName() override { return "XY Control"; }
-    const juce::String getApplicationVersion() override { return "1.0.0"; }
-    bool moreThanOneInstanceAllowed() override { return true; }
+    const juce::String getApplicationName() override       { return ProjectInfo::projectName; }
+    const juce::String getApplicationVersion() override    { return ProjectInfo::versionString; }
+    bool moreThanOneInstanceAllowed() override            { return true; }
 
     void initialise(const juce::String& commandLine) override
     {
-        auto startTime = juce::Time::getMillisecondCounter();
-
+        juce::ignoreUnused(commandLine);
         mainWindow.reset(new MainWindow(getApplicationName()));
-
-        auto elapsedMs = juce::Time::getMillisecondCounter() - startTime;
-
-        // Log to file
-        juce::File timingFile = juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-            .getChildFile("xycontrol_startup_timing.txt");
-        timingFile.replaceWithText("App window created in " + juce::String(elapsedMs) + "ms\n");
     }
 
     void shutdown() override
@@ -34,23 +26,29 @@ public:
         quit();
     }
 
+    void anotherInstanceStarted(const juce::String& commandLine) override
+    {
+        juce::ignoreUnused(commandLine);
+    }
+
     class MainWindow : public juce::DocumentWindow
     {
     public:
         MainWindow(juce::String name)
             : DocumentWindow(name,
-                           juce::Colours::lightgrey,
-                           DocumentWindow::allButtons)
+                            juce::Desktop::getInstance().getDefaultLookAndFeel()
+                                .findColour(juce::ResizableWindow::backgroundColourId),
+                            DocumentWindow::allButtons)
         {
             setUsingNativeTitleBar(true);
             setContentOwned(new MainComponent(), true);
 
-            #if JUCE_IOS || JUCE_ANDROID
-                setFullScreen(true);
-            #else
-                setResizable(true, true);
-                centreWithSize(getWidth(), getHeight());
-            #endif
+           #if JUCE_IOS || JUCE_ANDROID
+            setFullScreen(true);
+           #else
+            setResizable(true, true);
+            centreWithSize(getWidth(), getHeight());
+           #endif
 
             setVisible(true);
         }

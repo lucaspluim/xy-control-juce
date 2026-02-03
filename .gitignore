@@ -1,29 +1,34 @@
-# Build directories
+# Build artifacts
 build/
-cmake-build-*/
+*.o
+*.a
+*.dylib
+*.so
+*.dll
+*.exe
 
 # IDE files
 .vscode/
 .idea/
-*.user
-*.suo
+*.xcodeproj
+*.xcworkspace
 *.sln
-*.vcxproj*
+*.vcxproj
+*.user
 
 # macOS
 .DS_Store
-*.app
+*.swp
+*~
 
-# Compiled files
-*.o
-*.a
-*.dylib
-*.dll
-*.exe
+# JUCE
+JuceLibraryCode/
+Builds/
 
-# Temporary files
-xycontrol_timing.txt
-xycontrol_startup_timing.txt
+# Backup files
+*.bak
+*.backup
+*.tar.gz
 
-# Don't ignore Resources folder - we need the PNGs!
-!Resources/
+# Logs
+*.log

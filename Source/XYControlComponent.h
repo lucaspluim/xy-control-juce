@@ -1,79 +1,69 @@
 #pragma once
 
-#include <juce_gui_extra/juce_gui_extra.h>
-#include <array>
+#include <JuceHeader.h>
 
-class XYControlComponent : public juce::Component,
-                           private juce::Timer
+class XYControlComponent : public juce::Component
 {
 public:
     XYControlComponent();
     ~XYControlComponent() override;
 
-    void paint(juce::Graphics&) override;
+    void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseDown (const juce::MouseEvent& event) override;
+    void mouseDrag (const juce::MouseEvent& event) override;
+    void mouseUp (const juce::MouseEvent& event) override;
 
-    void mouseDown(const juce::MouseEvent& event) override;
-    void mouseDrag(const juce::MouseEvent& event) override;
-    void mouseUp(const juce::MouseEvent& event) override;
+    juce::Point<float> getPosition() const { return position; }
+    void setPosition(juce::Point<float> pos);
+    
+    int getColorScheme() const { return currentColorScheme; }
+    void setColorScheme(int scheme);
 
 private:
-    void timerCallback() override;
+    void updatePhysics();
+    void startHoldTimer();
+    void stopHoldTimer();
+    void triggerDisperse();
+    void cycleColorScheme();
 
-    struct SpringLayer
-    {
-        float x, y;
-        float vx, vy;
-        float stiffness, damping, mass;
-
-        SpringLayer(float stiff, float damp, float m)
-            : x(0.5f), y(0.5f), vx(0), vy(0),
-              stiffness(stiff), damping(damp), mass(m) {}
-
-        void update(float targetX, float targetY, float dt)
-        {
-            // Spring force
-            float fx = (targetX - x) * stiffness;
-            float fy = (targetY - y) * stiffness;
-
-            // Damping force
-            float dampingFx = vx * damping;
-            float dampingFy = vy * damping;
-
-            // Acceleration
-            float ax = (fx - dampingFx) / mass;
-            float ay = (fy - dampingFy) / mass;
-
-            // Velocity
-            vx += ax * dt;
-            vy += ay * dt;
-
-            // Position
-            x += vx * dt;
-            y += vy * dt;
-        }
-    };
-
-    struct GlowLayer
-    {
-        int size;
-        float opacity;
-        juce::Colour color;
-        juce::Image cachedImage;
-    };
-
-    std::array<SpringLayer, 6> springLayers;
-    std::array<GlowLayer, 5> glowLayers;
-
-    float targetX = 0.5f;
-    float targetY = 0.5f;
+    juce::Point<float> position { 0.5f, 0.5f };
+    juce::Point<float> velocity { 0.0f, 0.0f };
+    juce::Point<float> targetPosition { 0.5f, 0.5f };
+    
     bool isDragging = false;
-    int64_t lastFrameTime;
-    float idleTimer = 0.0f;
-    bool isBreathing = true;
-    float breatheTime = 0.0f;
+    bool isHolding = false;
+    float holdProgress = 0.0f;
+    int64 holdStartTime = 0;
+    const int64 holdDuration = 3000; // 3 seconds in milliseconds
+    
+    // Disperse effect
+    bool isDispersing = false;
+    float disperseProgress = 0.0f;
+    juce::Array<juce::Point<float>> disperseParticles;
+    juce::Array<juce::Point<float>> disperseVelocities;
+    
+    // Breathing animation
+    float breathingPhase = 0.0f;
+    
+    // Color schemes: 0 = Blue, 1 = Red, 2 = Black
+    int currentColorScheme = 0;
+    
+    // Double-click detection
+    int64 lastClickTime = 0;
+    const int64 doubleClickThreshold = 300; // milliseconds
+    
+    // Animation timer
+    class AnimationTimer : public juce::Timer
+    {
+    public:
+        AnimationTimer(XYControlComponent& owner) : owner(owner) {}
+        void timerCallback() override { owner.updatePhysics(); }
+    private:
+        XYControlComponent& owner;
+    };
+    
+    AnimationTimer animationTimer;
 
-    void loadGlowImagesFromBinaryData();
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(XYControlComponent)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XYControlComponent)
 };
