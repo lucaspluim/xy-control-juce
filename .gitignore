@@ -1,0 +1,29 @@
+# Build directories
+build/
+cmake-build-*/
+
+# IDE files
+.vscode/
+.idea/
+*.user
+*.suo
+*.sln
+*.vcxproj*
+
+# macOS
+.DS_Store
+*.app
+
+# Compiled files
+*.o
+*.a
+*.dylib
+*.dll
+*.exe
+
+# Temporary files
+xycontrol_timing.txt
+xycontrol_startup_timing.txt
+
+# Don't ignore Resources folder - we need the PNGs!
+!Resources/
