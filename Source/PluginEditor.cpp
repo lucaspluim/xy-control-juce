@@ -1,25 +1,20 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-XYControlAudioProcessorEditor::XYControlAudioProcessorEditor (XYControlAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p)
+XYControlAudioProcessorEditor::XYControlAudioProcessorEditor(XYControlAudioProcessor& p)
+    : AudioProcessorEditor(&p), audioProcessor(p)
 {
     addAndMakeVisible(mainComponent);
-    setSize (400, 450);
-    
-    // Restore XY position from processor
-    mainComponent.setXYPosition(audioProcessor.getXYPosition());
+    setSize(700, 700);
 }
 
 XYControlAudioProcessorEditor::~XYControlAudioProcessorEditor()
 {
-    // Save XY position to processor
-    audioProcessor.setXYPosition(mainComponent.getXYPosition());
 }
 
-void XYControlAudioProcessorEditor::paint (juce::Graphics& g)
+void XYControlAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+    // MainComponent handles all painting
 }
 
 void XYControlAudioProcessorEditor::resized()

@@ -2,16 +2,9 @@
 #include "PluginEditor.h"
 
 XYControlAudioProcessor::XYControlAudioProcessor()
-#ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       )
-#endif
+    : AudioProcessor(BusesProperties()
+                     .withInput("Input", juce::AudioChannelSet::stereo(), true)
+                     .withOutput("Output", juce::AudioChannelSet::stereo(), true))
 {
 }
 
@@ -26,29 +19,17 @@ const juce::String XYControlAudioProcessor::getName() const
 
 bool XYControlAudioProcessor::acceptsMidi() const
 {
-   #if JucePlugin_WantsMidiInput
-    return true;
-   #else
     return false;
-   #endif
 }
 
 bool XYControlAudioProcessor::producesMidi() const
 {
-   #if JucePlugin_ProducesMidiOutput
-    return true;
-   #else
     return false;
-   #endif
 }
 
 bool XYControlAudioProcessor::isMidiEffect() const
 {
-   #if JucePlugin_IsMidiEffect
-    return true;
-   #else
     return false;
-   #endif
 }
 
 double XYControlAudioProcessor::getTailLengthSeconds() const
@@ -66,56 +47,54 @@ int XYControlAudioProcessor::getCurrentProgram()
     return 0;
 }
 
-void XYControlAudioProcessor::setCurrentProgram (int index)
+void XYControlAudioProcessor::setCurrentProgram(int index)
 {
+    juce::ignoreUnused(index);
 }
 
-const juce::String XYControlAudioProcessor::getProgramName (int index)
+const juce::String XYControlAudioProcessor::getProgramName(int index)
 {
+    juce::ignoreUnused(index);
     return {};
 }
 
-void XYControlAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void XYControlAudioProcessor::changeProgramName(int index, const juce::String& newName)
 {
+    juce::ignoreUnused(index, newName);
 }
 
-void XYControlAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void XYControlAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
+    juce::ignoreUnused(sampleRate, samplesPerBlock);
 }
 
 void XYControlAudioProcessor::releaseResources()
 {
 }
 
-#ifndef JucePlugin_PreferredChannelConfigurations
-bool XYControlAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool XYControlAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
-    return true;
-  #else
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
-   #if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
-   #endif
 
     return true;
-  #endif
 }
-#endif
 
-void XYControlAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void XYControlAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    juce::ignoreUnused(midiMessages);
     juce::ScopedNoDenormals noDenormals;
+
+    // Pass-through audio
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+        buffer.clear(i, 0, buffer.getNumSamples());
 }
 
 bool XYControlAudioProcessor::hasEditor() const
@@ -125,23 +104,20 @@ bool XYControlAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* XYControlAudioProcessor::createEditor()
 {
-    return new XYControlAudioProcessorEditor (*this);
+    return new XYControlAudioProcessorEditor(*this);
 }
 
-void XYControlAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void XYControlAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    juce::MemoryOutputStream stream(destData, true);
-    stream.writeFloat(xyPosition.x);
-    stream.writeFloat(xyPosition.y);
+    juce::ignoreUnused(destData);
 }
 
-void XYControlAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void XYControlAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    juce::MemoryInputStream stream(data, static_cast<size_t>(sizeInBytes), false);
-    xyPosition.x = stream.readFloat();
-    xyPosition.y = stream.readFloat();
+    juce::ignoreUnused(data, sizeInBytes);
 }
 
+// This creates new instances of the plugin
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new XYControlAudioProcessor();
