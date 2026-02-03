@@ -1,129 +1,184 @@
 #include "XYControlComponent.h"
+#include "BinaryData.h"
 
 XYControlComponent::XYControlComponent()
-    : animationTimer(*this)
+    : springLayers{{
+        SpringLayer(0.24f, 0.89f, 1.0f),
+        SpringLayer(0.20f, 1.13f, 1.6f),
+        SpringLayer(0.18f, 1.07f, 2.2f),
+        SpringLayer(0.16f, 1.05f, 2.8f),
+        SpringLayer(0.14f, 1.03f, 3.4f),
+        SpringLayer(0.12f, 1.01f, 4.0f)
+    }}
 {
-    setSize(400, 400);
-    animationTimer.startTimerHz(60); // 60 FPS
+    loadGlowImagesFromBinaryData();
+    startTimerHz(60);
 }
 
 XYControlComponent::~XYControlComponent()
 {
-    animationTimer.stopTimer();
 }
 
-void XYControlComponent::paint (juce::Graphics& g)
+void XYControlComponent::loadGlowImagesFromBinaryData()
 {
+    const char* presetName;
+    int sizes[5];
+
+    switch (currentPreset)
+    {
+        case Preset::Blue:
+            presetName = "blue";
+            sizes[0] = 120; sizes[1] = 180; sizes[2] = 260; sizes[3] = 360; sizes[4] = 480;
+            break;
+        case Preset::Red:
+            presetName = "red";
+            sizes[0] = 120; sizes[1] = 180; sizes[2] = 260; sizes[3] = 360; sizes[4] = 480;
+            break;
+        case Preset::Black:
+            presetName = "black";
+            sizes[0] = 100; sizes[1] = 150; sizes[2] = 215; sizes[3] = 300; sizes[4] = 400;
+            break;
+    }
+
+    for (int i = 0; i < 5; ++i)
+    {
+        juce::String resourceName = juce::String("glow_") + presetName + "_layer_" + juce::String(i) + "_png";
+
+        int dataSize = 0;
+        const char* data = BinaryData::getNamedResource(resourceName.toRawUTF8(), dataSize);
+
+        if (data != nullptr && dataSize > 0)
+        {
+            glowLayers[i] = juce::ImageCache::getFromMemory(data, dataSize);
+        }
+    }
+}
+
+void XYControlComponent::setPreset(Preset preset)
+{
+    if (currentPreset != preset)
+    {
+        currentPreset = preset;
+        loadGlowImagesFromBinaryData();
+
+        const float goldenAngle = 2.39996f;
+        float baseAngle = juce::Random::getSystemRandom().nextFloat() * 6.28318f;
+
+        for (size_t i = 1; i < springLayers.size(); ++i)
+        {
+            float angle = baseAngle + (i - 1) * goldenAngle;
+            float dx = std::cos(angle);
+            float dy = std::sin(angle);
+            float impulse = 0.08f + i * 0.025f;
+
+            springLayers[i].vx += dx * impulse;
+            springLayers[i].vy += dy * impulse;
+        }
+
+        repaint();
+    }
+}
+
+void XYControlComponent::paint(juce::Graphics& g)
+{
+    juce::Colour bgColor, gridColor, cursorColor, highlightColor;
+
+    switch (currentPreset)
+    {
+        case Preset::Blue:
+            bgColor = juce::Colours::white;
+            gridColor = juce::Colour(0xffe0e0e0);
+            cursorColor = juce::Colour(0xff007aff);
+            highlightColor = juce::Colour(0x20007aff);
+            break;
+        case Preset::Red:
+            bgColor = juce::Colour(0xff1a0000);
+            gridColor = juce::Colour(0xff4a0000);
+            cursorColor = juce::Colour(0xffff453a);
+            highlightColor = juce::Colour(0x20ff453a);
+            break;
+        case Preset::Black:
+            bgColor = juce::Colours::black;
+            gridColor = juce::Colour(0xff2a2a2a);
+            cursorColor = juce::Colours::white;
+            highlightColor = juce::Colour(0x20ffffff);
+            break;
+    }
+
+    g.fillAll(bgColor);
+
     auto bounds = getLocalBounds().toFloat();
-    
-    // Background
-    g.fillAll(juce::Colour(0xff0a0a0a));
-    
-    // Get color scheme colors
-    juce::Colour primaryColor, glowColor;
-    
-    switch (currentColorScheme)
-    {
-        case 0: // Blue
-            primaryColor = juce::Colour(0xff00bfff);
-            glowColor = juce::Colour(0xff0080ff);
-            break;
-        case 1: // Red
-            primaryColor = juce::Colour(0xffff4444);
-            glowColor = juce::Colour(0xffff0000);
-            break;
-        case 2: // Black
-            primaryColor = juce::Colour(0xff333333);
-            glowColor = juce::Colour(0xff666666);
-            break;
-        default:
-            primaryColor = juce::Colour(0xff00bfff);
-            glowColor = juce::Colour(0xff0080ff);
-            break;
-    }
-    
-    // Grid
-    g.setColour(juce::Colour(0xff222222));
-    for (int i = 1; i < 4; ++i)
-    {
-        float pos = bounds.getWidth() * i / 4.0f;
-        g.drawLine(pos, 0, pos, bounds.getHeight(), 1.0f);
-        g.drawLine(0, pos, bounds.getWidth(), pos, 1.0f);
-    }
-    
-    // Center crosshair
-    g.setColour(juce::Colour(0xff444444));
+    float cellSize = 50.0f;
+
+    g.setColour(gridColor);
+    for (float x = cellSize; x < bounds.getWidth(); x += cellSize)
+        g.drawLine(x, 0, x, bounds.getHeight(), 1.0f);
+    for (float y = cellSize; y < bounds.getHeight(); y += cellSize)
+        g.drawLine(0, y, bounds.getWidth(), y, 1.0f);
+
     float centerX = bounds.getWidth() / 2.0f;
     float centerY = bounds.getHeight() / 2.0f;
-    g.drawLine(centerX - 10, centerY, centerX + 10, centerY, 1.0f);
-    g.drawLine(centerX, centerY - 10, centerX, centerY + 10, 1.0f);
-    
-    // Calculate actual position on screen
-    float x = position.x * bounds.getWidth();
-    float y = position.y * bounds.getHeight();
-    
-    // Breathing effect
-    float breathingScale = 1.0f + 0.05f * std::sin(breathingPhase);
-    float baseRadius = 20.0f * breathingScale;
-    
-    // Hold indicator (blue ring that grows)
-    if (isHolding && holdProgress > 0.0f)
+    g.setColour(gridColor.withMultipliedAlpha(2.0f));
+    g.drawLine(centerX, 0, centerX, bounds.getHeight(), 2.0f);
+    g.drawLine(0, centerY, bounds.getWidth(), centerY, 2.0f);
+
+    float breatheScale = 1.0f;
+    if (!isDragging && breatheBlend > 0.0f)
     {
-        float ringRadius = baseRadius + 15.0f * holdProgress;
-        g.setColour(juce::Colour(0xff00bfff).withAlpha(0.3f * (1.0f - holdProgress * 0.5f)));
-        g.drawEllipse(x - ringRadius, y - ringRadius, ringRadius * 2, ringRadius * 2, 3.0f);
+        float breatheAmount = std::sin(breathePhase) * 0.015f + 1.0f;
+        breatheScale = 1.0f + (breatheAmount - 1.0f) * breatheBlend;
     }
-    
-    // Disperse particles
-    if (isDispersing)
+
+    for (int i = 4; i >= 1; --i)
     {
-        g.setColour(primaryColor.withAlpha(1.0f - disperseProgress));
-        for (auto& particle : disperseParticles)
-        {
-            float px = particle.x * bounds.getWidth();
-            float py = particle.y * bounds.getHeight();
-            float particleSize = 8.0f * (1.0f - disperseProgress);
-            g.fillEllipse(px - particleSize / 2, py - particleSize / 2, particleSize, particleSize);
-        }
+        if (!glowLayers[i].isValid())
+            continue;
+
+        float layerX = springLayers[i + 1].x;
+        float layerY = springLayers[i + 1].y;
+
+        float screenX = layerX * bounds.getWidth();
+        float screenY = layerY * bounds.getHeight();
+
+        float imgW = glowLayers[i].getWidth() * breatheScale;
+        float imgH = glowLayers[i].getHeight() * breatheScale;
+
+        float drawX = screenX - imgW / 2.0f;
+        float drawY = screenY - imgH / 2.0f;
+
+        g.setOpacity(1.0f);
+        g.drawImage(glowLayers[i],
+                   juce::Rectangle<float>(drawX, drawY, imgW, imgH),
+                   juce::RectanglePlacement::stretchToFit);
     }
-    
-    // Glow effect (multiple layers)
-    if (!isDispersing)
+
+    float ballX = cursorX * bounds.getWidth();
+    float ballY = cursorY * bounds.getHeight();
+    float ballRadius = 12.0f;
+
+    if (!glowLayers[0].isValid())
     {
-        for (int i = 3; i > 0; --i)
-        {
-            float glowRadius = baseRadius + i * 8.0f;
-            float alpha = 0.15f / i;
-            g.setColour(glowColor.withAlpha(alpha));
-            g.fillEllipse(x - glowRadius, y - glowRadius, glowRadius * 2, glowRadius * 2);
-        }
-        
-        // Main ball
-        g.setColour(primaryColor);
-        g.fillEllipse(x - baseRadius, y - baseRadius, baseRadius * 2, baseRadius * 2);
-        
-        // Highlight
-        g.setColour(juce::Colours::white.withAlpha(0.4f));
-        float highlightRadius = baseRadius * 0.4f;
-        g.fillEllipse(x - baseRadius * 0.4f, y - baseRadius * 0.4f, 
-                     highlightRadius * 2, highlightRadius * 2);
+        g.setColour(cursorColor);
+        g.fillEllipse(ballX - ballRadius, ballY - ballRadius, ballRadius * 2, ballRadius * 2);
     }
-    
-    // Coordinates display
-    g.setColour(juce::Colours::white.withAlpha(0.7f));
-    g.setFont(12.0f);
-    juce::String coordText = juce::String::formatted("X: %.2f  Y: %.2f", position.x, position.y);
-    g.drawText(coordText, bounds.reduced(10), juce::Justification::topRight);
-    
-    // Color scheme indicator
-    juce::String schemeText;
-    switch (currentColorScheme)
+    else
     {
-        case 0: schemeText = "Blue"; break;
-        case 1: schemeText = "Red"; break;
-        case 2: schemeText = "Black"; break;
+        float coreImgW = glowLayers[0].getWidth();
+        float coreImgH = glowLayers[0].getHeight();
+        float drawX = ballX - coreImgW / 2.0f;
+        float drawY = ballY - coreImgH / 2.0f;
+
+        g.setOpacity(1.0f);
+        g.drawImage(glowLayers[0],
+                   juce::Rectangle<float>(drawX, drawY, coreImgW, coreImgH),
+                   juce::RectanglePlacement::stretchToFit);
     }
-    g.drawText(schemeText, bounds.reduced(10), juce::Justification::topLeft);
+
+    if (isDragging)
+    {
+        g.setColour(highlightColor);
+        g.fillEllipse(ballX - 50, ballY - 50, 100, 100);
+    }
 }
 
 void XYControlComponent::resized()
@@ -132,169 +187,84 @@ void XYControlComponent::resized()
 
 void XYControlComponent::mouseDown(const juce::MouseEvent& event)
 {
-    // Check for double-click
-    int64 currentTime = juce::Time::currentTimeMillis();
-    if (currentTime - lastClickTime < doubleClickThreshold)
+    isDragging = true;
+    breatheBlend = 0.0f;
+
+    auto bounds = getLocalBounds().toFloat();
+    cursorX = juce::jlimit(0.0f, 1.0f, event.position.x / bounds.getWidth());
+    cursorY = juce::jlimit(0.0f, 1.0f, event.position.y / bounds.getHeight());
+    targetX = cursorX;
+    targetY = cursorY;
+
+    for (auto& layer : springLayers)
     {
-        // Double-click detected
-        cycleColorScheme();
-        triggerDisperse();
-        lastClickTime = 0; // Reset to prevent triple-click
+        layer.x = cursorX;
+        layer.y = cursorY;
+        layer.vx = 0;
+        layer.vy = 0;
     }
-    else
-    {
-        lastClickTime = currentTime;
-        isDragging = true;
-        
-        // Update position immediately
-        auto bounds = getLocalBounds().toFloat();
-        position.x = juce::jlimit(0.0f, 1.0f, event.position.x / bounds.getWidth());
-        position.y = juce::jlimit(0.0f, 1.0f, event.position.y / bounds.getHeight());
-        targetPosition = position;
-        velocity = juce::Point<float>(0.0f, 0.0f);
-        
-        startHoldTimer();
-        repaint();
-    }
+
+    repaint();
 }
 
 void XYControlComponent::mouseDrag(const juce::MouseEvent& event)
 {
-    if (isDragging)
+    auto bounds = getLocalBounds().toFloat();
+    cursorX = juce::jlimit(0.0f, 1.0f, event.position.x / bounds.getWidth());
+    cursorY = juce::jlimit(0.0f, 1.0f, event.position.y / bounds.getHeight());
+    targetX = cursorX;
+    targetY = cursorY;
+
+    for (auto& layer : springLayers)
     {
-        auto bounds = getLocalBounds().toFloat();
-        position.x = juce::jlimit(0.0f, 1.0f, event.position.x / bounds.getWidth());
-        position.y = juce::jlimit(0.0f, 1.0f, event.position.y / bounds.getHeight());
-        targetPosition = position;
-        velocity = juce::Point<float>(0.0f, 0.0f);
-        
-        // Reset hold timer if moved
-        stopHoldTimer();
-        
-        repaint();
+        layer.x = cursorX;
+        layer.y = cursorY;
+        layer.vx = 0;
+        layer.vy = 0;
     }
+
+    repaint();
 }
 
 void XYControlComponent::mouseUp(const juce::MouseEvent& event)
 {
     isDragging = false;
-    stopHoldTimer();
-    
-    // Spring back to center
-    targetPosition = juce::Point<float>(0.5f, 0.5f);
+    targetX = 0.5f;
+    targetY = 0.5f;
 }
 
-void XYControlComponent::updatePhysics()
+void XYControlComponent::mouseDoubleClick(const juce::MouseEvent& event)
 {
-    // Update breathing animation
-    breathingPhase += 0.05f;
-    if (breathingPhase > juce::MathConstants<float>::twoPi)
-        breathingPhase -= juce::MathConstants<float>::twoPi;
-    
-    // Update hold progress
-    if (isHolding)
+    const float goldenAngle = 2.39996f;
+    float baseAngle = juce::Random::getSystemRandom().nextFloat() * 6.28318f;
+
+    for (size_t i = 1; i < springLayers.size(); ++i)
     {
-        int64 currentTime = juce::Time::currentTimeMillis();
-        int64 elapsed = currentTime - holdStartTime;
-        holdProgress = juce::jlimit(0.0f, 1.0f, elapsed / (float)holdDuration);
+        float angle = baseAngle + (i - 1) * goldenAngle;
+        float dx = std::cos(angle);
+        float dy = std::sin(angle);
+        float impulse = 0.08f + i * 0.025f;
+
+        springLayers[i].vx += dx * impulse;
+        springLayers[i].vy += dy * impulse;
     }
-    
-    // Update disperse effect
-    if (isDispersing)
-    {
-        disperseProgress += 0.02f;
-        if (disperseProgress >= 1.0f)
-        {
-            isDispersing = false;
-            disperseProgress = 0.0f;
-        }
-        else
-        {
-            // Update particle positions
-            for (int i = 0; i < disperseParticles.size(); ++i)
-            {
-                disperseParticles.getReference(i).x += disperseVelocities[i].x * 0.016f;
-                disperseParticles.getReference(i).y += disperseVelocities[i].y * 0.016f;
-            }
-        }
-    }
-    
-    // Spring physics (only when not dragging)
+}
+
+void XYControlComponent::timerCallback()
+{
+    const float dt = 1.0f / 60.0f;
+
     if (!isDragging)
     {
-        const float springStiffness = 0.1f;
-        const float damping = 0.8f;
-        
-        juce::Point<float> displacement = targetPosition - position;
-        juce::Point<float> springForce = displacement * springStiffness;
-        
-        velocity += springForce;
-        velocity *= damping;
-        
-        position += velocity;
-        
-        // Stop if very close to target
-        if (displacement.getDistanceFromOrigin() < 0.001f && 
-            velocity.getDistanceFromOrigin() < 0.001f)
-        {
-            position = targetPosition;
-            velocity = juce::Point<float>(0.0f, 0.0f);
-        }
+        breathePhase += dt * 2.0f;
+        breatheBlend = juce::jmin(1.0f, breatheBlend + dt * 1.0f);
     }
-    
+
+    for (auto& layer : springLayers)
+        layer.update(targetX, targetY, dt);
+
+    cursorX = springLayers[0].x;
+    cursorY = springLayers[0].y;
+
     repaint();
-}
-
-void XYControlComponent::setPosition(juce::Point<float> pos)
-{
-    position = pos;
-    targetPosition = pos;
-    velocity = juce::Point<float>(0.0f, 0.0f);
-    repaint();
-}
-
-void XYControlComponent::setColorScheme(int scheme)
-{
-    currentColorScheme = juce::jlimit(0, 2, scheme);
-    repaint();
-}
-
-void XYControlComponent::startHoldTimer()
-{
-    isHolding = true;
-    holdProgress = 0.0f;
-    holdStartTime = juce::Time::currentTimeMillis();
-}
-
-void XYControlComponent::stopHoldTimer()
-{
-    isHolding = false;
-    holdProgress = 0.0f;
-}
-
-void XYControlComponent::triggerDisperse()
-{
-    isDispersing = true;
-    disperseProgress = 0.0f;
-    disperseParticles.clear();
-    disperseVelocities.clear();
-    
-    // Create particles in a circle around the current position
-    int numParticles = 12;
-    juce::Random random;
-    
-    for (int i = 0; i < numParticles; ++i)
-    {
-        float angle = (i / (float)numParticles) * juce::MathConstants<float>::twoPi;
-        disperseParticles.add(position);
-        
-        float speed = 2.0f + random.nextFloat() * 1.0f;
-        juce::Point<float> vel(std::cos(angle) * speed, std::sin(angle) * speed);
-        disperseVelocities.add(vel);
-    }
-}
-
-void XYControlComponent::cycleColorScheme()
-{
-    currentColorScheme = (currentColorScheme + 1) % 3;
 }
